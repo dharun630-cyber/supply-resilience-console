@@ -81,6 +81,7 @@ def to_parquet(zip_path) -> "Path":
         writer = writer or pq.ParquetWriter(out, tbl.schema)
         writer.write_table(tbl)
     writer.close()
+    csv_path.unlink()  # 2.8 GB; the zip and the parquet are all we keep
     return out
 
 

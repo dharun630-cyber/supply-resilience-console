@@ -59,9 +59,11 @@ Two modelling decisions carry most of the weight:
 
 ## Run it
 
+Full setup, configuration and troubleshooting: **[GETTING_STARTED.md](GETTING_STARTED.md)**.
+
 ```bash
 python -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python pipeline.py        # ~2 min cold (downloads ~800 MB), ~20 s warm
+.venv/bin/python pipeline.py        # ~2 min cold (downloads ~580 MB), ~20 s warm
 .venv/bin/python -m pytest -q tests
 .venv/bin/python app/app.py         # http://127.0.0.1:8050
 ```

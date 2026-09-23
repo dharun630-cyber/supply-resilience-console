@@ -52,7 +52,8 @@ def fetch_ots():
     end = OTS_END_MONTH or latest_ots_month()
     y, m = divmod(end, 100)
     start = (y - 1) * 100 + m + 1 if m < 12 else y * 100 + 1
-    out = raw_dir("hmrc") / f"ots_{start}_{end}.json"
+    # Scope is part of the cache key, so changing HS_CHAPTERS never reuses stale files
+    out = raw_dir("hmrc") / f"ots_{'-'.join(HS_CHAPTERS)}_{start}_{end}.json"
     if not out.exists():
         rows = []
         for ch in HS_CHAPTERS:
@@ -68,7 +69,7 @@ def fetch_ots():
 
 def fetch_reference():
     d = raw_dir("hmrc")
-    cc = d / "commodity.json"
+    cc = d / f"commodity_{'-'.join(HS_CHAPTERS)}.json"
     if not cc.exists():
         flt = " or ".join(f"Hs2Code eq '{c}'" for c in HS_CHAPTERS)
         json.dump(_get_all(f"{HMRC_API}/Commodity?$filter={flt}"), open(cc, "w"))
