@@ -1,0 +1,235 @@
+# Supply Chain Resilience Ontology
+# ---------------------------------------------------------------------------
+# This file is the single source of truth for the semantic layer.
+# The pipeline validates every object/link table against it, and the graph
+# builder constructs the NetworkX graph from it generically: no object type
+# is hard-coded anywhere else.
+#
+# Layers (mirrors Foundry): raw  ->  clean  ->  ontology  (+ writeback)
+#   raw:       source files exactly as downloaded, never edited
+#   clean:     typed, normalised, one table per source concept
+#   ontology:  one table per object type and per link type (declared below)
+#   writeback: rows created only by user Actions; never rebuilt by the pipeline
+
+object_types:
+
+  Company:
+    description: A UK-registered legal entity from Companies House.
+    backing_table: ontology.company
+    primary_key: company_number
+    title_property: name
+    properties:
+      company_number:  {type: string}
+      name:            {type: string}
+      status:          {type: string}
+      category:        {type: string}
+      postcode:        {type: string}
+      incorporated_on: {type: date}
+      sic_codes:       {type: "string[]"}
+      accounts_overdue: {type: boolean}
+      confirmation_overdue: {type: boolean}
+      fragility_score: {type: double, derived: true,
+                        note: "0-1; see transform/scoring.py for components"}
+
+  Commodity:
+    description: An 8-digit Combined Nomenclature (CN8) goods code.
+    backing_table: ontology.commodity
+    primary_key: cn8_code
+    title_property: description
+    properties:
+      cn8_code:    {type: string}
+      description: {type: string}
+      hs2_code:    {type: string}
+      hs4_code:    {type: string}
+      hs4_description: {type: string}
+
+  Country:
+    description: A sovereign country (ISO 3166 alpha-3).
+    backing_table: ontology.country
+    primary_key: iso3
+    title_property: name
+    properties:
+      iso3: {type: string}
+      name: {type: string}
+      uk_sanctions_regime: {type: boolean}
+      sanctions_designations: {type: integer}
+      active_event_severity: {type: double, derived: true,
+                              note: "max severity of current RiskEvents, 0-1"}
+      country_risk: {type: double, derived: true}
+
+  ImportFlow:
+    description: >
+      Trailing-12-month UK imports of one commodity from one country.
+      An OBJECT, not a link, because the relationship carries data.
+    backing_table: ontology.import_flow
+    primary_key: flow_id
+    title_property: flow_id
+    properties:
+      flow_id:   {type: string}
+      cn8_code:  {type: string}
+      iso3:      {type: string}
+      period_start: {type: integer}
+      period_end:   {type: integer}
+      value_gbp: {type: double}
+      share_of_uk_imports: {type: double, derived: true}
+
+  RiskEvent:
+    description: A disruption signal (natural disaster from GDACS).
+    backing_table: ontology.risk_event
+    primary_key: event_id
+    title_property: name
+    properties:
+      event_id:   {type: string}
+      source:     {type: string}
+      event_type: {type: string}
+      name:       {type: string}
+      alert_level: {type: string}
+      severity:   {type: double}
+      start_date: {type: date}
+      end_date:   {type: date}
+      is_current: {type: boolean}
+      url:        {type: string}
+
+  ERPSupplier:
+    description: A vendor record from the client's ERP (Oracle AP_SUPPLIERS-like).
+    backing_table: ontology.erp_supplier
+    primary_key: vendor_id
+    title_property: vendor_name
+    properties:
+      vendor_id:   {type: string}
+      vendor_name: {type: string}
+      postcode:    {type: string}
+      country_iso3: {type: string}
+      stated_company_number: {type: string,
+                              note: "as keyed in the ERP; may be missing or wrong"}
+      spend_12m_gbp: {type: double, derived: true}
+      criticality:   {type: string}
+
+  PurchaseOrderLine:
+    description: A PO line the client placed with a vendor.
+    backing_table: ontology.po_line
+    primary_key: po_line_id
+    title_property: po_line_id
+    properties:
+      po_line_id: {type: string}
+      vendor_id:  {type: string}
+      cn8_code:   {type: string}
+      item_description: {type: string}
+      amount_gbp: {type: double}
+      order_date: {type: date}
+
+  Alert:
+    description: An operational case raised when a supplier is exposed. Writeback only.
+    backing_table: writeback.alert
+    writeback: true
+    primary_key: alert_id
+    title_property: alert_id
+    properties:
+      alert_id:   {type: string}
+      vendor_id:  {type: string}
+      event_id:   {type: string}
+      status:     {type: string, enum: [open, acknowledged, mitigating, closed]}
+      owner:      {type: string}
+      note:       {type: string}
+      created_at: {type: timestamp}
+      updated_at: {type: timestamp}
+
+link_types:
+
+  imports:
+    description: Company is registered with HMRC as importing this commodity.
+    from: Company
+    to: Commodity
+    cardinality: many_to_many
+    backing_table: ontology.link_company_imports
+    from_key: company_number
+    to_key: cn8_code
+
+  flow_of_commodity:
+    from: ImportFlow
+    to: Commodity
+    cardinality: many_to_one
+    backing_table: ontology.import_flow
+    from_key: flow_id
+    to_key: cn8_code
+
+  flow_from_country:
+    from: ImportFlow
+    to: Country
+    cardinality: many_to_one
+    backing_table: ontology.import_flow
+    from_key: flow_id
+    to_key: iso3
+
+  affects:
+    description: A RiskEvent affects a Country (events can span many countries).
+    from: RiskEvent
+    to: Country
+    cardinality: many_to_many
+    backing_table: ontology.link_event_affects
+    from_key: event_id
+    to_key: iso3
+
+  resolves_to:
+    description: >
+      Entity-resolution result. ERP vendor -> canonical Company, with evidence.
+      Human overrides (Action: confirm_match / reject_match) take precedence.
+    from: ERPSupplier
+    to: Company
+    cardinality: many_to_one
+    backing_table: ontology.link_supplier_resolves_to
+    from_key: vendor_id
+    to_key: company_number
+    properties: [match_method, match_score, confidence]
+
+  located_in:
+    description: Where the vendor ships from. Decides direct vs inferred exposure.
+    from: ERPSupplier
+    to: Country
+    cardinality: many_to_one
+    backing_table: ontology.erp_supplier
+    from_key: vendor_id
+    to_key: country_iso3
+
+  ordered_from:
+    from: PurchaseOrderLine
+    to: ERPSupplier
+    cardinality: many_to_one
+    backing_table: ontology.po_line
+    from_key: po_line_id
+    to_key: vendor_id
+
+  po_commodity:
+    from: PurchaseOrderLine
+    to: Commodity
+    cardinality: many_to_one
+    backing_table: ontology.po_line
+    from_key: po_line_id
+    to_key: cn8_code
+
+  alert_about:
+    from: Alert
+    to: ERPSupplier
+    cardinality: many_to_one
+    backing_table: writeback.alert
+    from_key: alert_id
+    to_key: vendor_id
+
+# Actions are the "verbs". Implemented in src/scm/actions.py (Milestone 3 UI calls them).
+action_types:
+  raise_alert:
+    edits: Alert
+    parameters: [vendor_id, event_id, owner, note]
+  update_alert_status:
+    edits: Alert
+    parameters: [alert_id, status, note]
+    rules: ["status transitions: open->acknowledged->mitigating->closed"]
+  confirm_match:
+    edits: resolves_to
+    parameters: [vendor_id, company_number]
+  reject_match:
+    edits: resolves_to
+    parameters: [vendor_id]
+  set_criticality:
+    edits: ERPSupplier
+    parameters: [vendor_id, criticality]

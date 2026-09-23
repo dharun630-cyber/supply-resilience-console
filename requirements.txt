@@ -1,0 +1,12 @@
+duckdb>=1.5
+networkx>=3.6
+pandas>=2.2
+pyarrow>=17
+pyyaml>=6
+rapidfuzz>=3.9
+requests>=2.32
+pycountry>=24.6
+dash>=4.0
+dash-cytoscape>=1.0
+plotly>=6.0
+pytest>=8

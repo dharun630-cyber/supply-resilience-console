@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "console",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["app/app.py"],
+      "port": 8050
+    }
+  ]
+}
