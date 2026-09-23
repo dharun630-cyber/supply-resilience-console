@@ -6,6 +6,8 @@ It fuses a (synthetic) client ERP extract with four messy public sources (Compan
 
 ![Supply Resilience Console](docs/img/console.png)
 
+**Case study:** [the design story, the ontology and the results on one page](https://claude.ai/artifact/KdVd8Pjm13WZgBRDQZzngd)
+
 ---
 
 ## The pattern
