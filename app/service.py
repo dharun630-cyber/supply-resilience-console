@@ -94,7 +94,8 @@ class Console:
         df = df.merge(com.rename(columns={"cn8_code": "driver_commodity"}), on="driver_commodity", how="left")
         names = self.q("select iso3, name from ontology.country").set_index("iso3")["name"]
         df["driver_country_name"] = df.driver_country.map(names)
-        return df.sort_values("priority", ascending=False)
+        # Name breaks ties so equal-priority suppliers keep a stable order between page loads
+        return df.sort_values(["priority", "vendor_name"], ascending=[False, True], kind="stable")
 
     def event(self, event_id: str) -> dict:
         return self.q("""select e.*, string_agg(c.name, ', ' order by c.name) countries

@@ -193,6 +193,12 @@ CYTO_STYLE = [
         "target-arrow-shape": "triangle", "curve-style": "bezier", "arrow-scale": 0.9,
         "label": "data(label)", "font-size": 10, "color": "#52514e",
         "text-background-color": "#fcfcfb", "text-background-opacity": 1, "text-background-padding": 2}},
+    # located_in jumps from the supplier (bottom row) back up to its country (row 2). Drawn
+    # straight, it would run through the Commodity and PurchaseOrderLine boxes, so it bows out
+    # past the widest row (up to 3 commodities: 2 x 200 spacing / 2 + half a node + margin).
+    {"selector": "edge.bow", "style": {
+        "curve-style": "unbundled-bezier", "control-point-distances": 360, "control-point-weights": 0.5,
+        "text-margin-x": 0}},
 ]
 
 app.layout = layout
@@ -392,7 +398,8 @@ def render_path(event_id, vendor_id, _v):
     for a, b, lbl in edges:
         if (a, b) not in seen:
             seen.add((a, b))
-            elements.append({"data": {"source": a, "target": b, "label": lbl}})
+            elements.append({"data": {"source": a, "target": b, "label": lbl},
+                             "classes": "bow" if lbl == "located_in" else ""})
 
     total = sum(r["contribution"] for r in bd)
     if direct:
