@@ -37,9 +37,12 @@ def gbp(x) -> str:
 
 
 def as_list(x) -> list:
-    """DuckDB lists arrive as numpy arrays; missing values as NaN/None."""
-    if x is None or isinstance(x, float):
+    """DuckDB lists arrive as numpy arrays; missing values as None, NaN or pd.NA
+    (an unresolved overseas supplier has no Company, so no fragility reasons)."""
+    if x is None:
         return []
+    if pd.api.types.is_scalar(x):
+        return [] if pd.isna(x) else [str(x)]
     return [str(v) for v in x]
 
 

@@ -15,7 +15,9 @@ from scm.transform.scoring import supplier_exposure_sql  # noqa: E402
 
 @pytest.fixture(scope="module")
 def con():
-    return duckdb.connect(str(WAREHOUSE), read_only=True)
+    # Same mode as the app (read-write): DuckDB refuses mixed modes on one file in one process,
+    # and test_app_render opens the app. These tests only read.
+    return duckdb.connect(str(WAREHOUSE))
 
 
 @pytest.fixture(scope="module")

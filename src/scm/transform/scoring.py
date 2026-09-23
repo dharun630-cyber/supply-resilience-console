@@ -3,6 +3,8 @@ dashboard can always answer 'why is this number high?'.
 """
 from __future__ import annotations
 
+import math
+
 # Company fragility: signals from Companies House filings
 FRAGILITY_WEIGHTS = {
     "not_active": 1.0,            # liquidation, administration, strike-off proposed...
@@ -22,8 +24,21 @@ SANCTIONS_RISK = 0.8
 CRITICALITY_WEIGHT = {"high": 1.0, "medium": 0.6, "low": 0.3}
 
 
+def _num_or_zero(x) -> float:
+    """None, NaN and pd.NA all mean 'unknown'. `x or 0.0` is NOT enough: NaN is truthy,
+    and a NaN priority sorts last, silently burying every unresolved supplier."""
+    try:
+        v = float(x)
+    except (TypeError, ValueError):
+        return 0.0
+    return 0.0 if math.isnan(v) else v
+
+
 def priority(exposure: float, criticality: str, fragility: float | None) -> float:
-    return exposure * CRITICALITY_WEIGHT.get(criticality, 0.6) * (1 + (fragility or 0.0)) / 2
+    """Unknown fragility (no Companies House match, e.g. an overseas supplier) counts as 0:
+    no evidence of financial distress, rather than no priority at all."""
+    return exposure * CRITICALITY_WEIGHT.get(criticality, 0.6) * (1 + _num_or_zero(fragility)) / 2
+
 
 COMPANY_FRAGILITY_SQL = f"""
 select *,
